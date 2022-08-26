@@ -1,0 +1,86 @@
+---
+title: 'reference vs de novo BUSCO comparison'
+author: "Daniel Li"
+date: "23/05/2022"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    highlight: 'tango'
+  html_document:
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_depth: 3
+---
+
+# Code
+
+```{r load_libraries, warning=FALSE, message=FALSE}
+# load libraries
+library(vroom)
+library(ggplot2)
+# install.packages("ggVennDiagram")
+library(ggVennDiagram)
+```
+
+```{r set_wd_import_datasets}
+# set working directory and import BUSCO TSV files
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+ref_genome <- vroom("./reference_genome_full_table.tsv", skip = 2)
+ref_proteome <- vroom("./reference_proteome_full_table.tsv", skip = 2)
+de_novo <- vroom("./trinity_full_table.tsv", skip = 2)
+```
+
+
+```{r tidy_datasets}
+# remove spaces in headers, rename busco id column, keep only busco.id and status columns
+
+names(ref_genome) <- make.names(names(ref_genome), unique = TRUE)
+names(ref_proteome) <- make.names(names(ref_proteome), unique = TRUE)
+names(de_novo) <- make.names(names(de_novo), unique = TRUE)
+
+names(ref_genome)[1] <- 'Busco.id'
+names(ref_proteome)[1] <- 'Busco.id'
+names(de_novo)[1] <- 'Busco.id'
+
+cols_to_keep <- c("Busco.id","Status")
+ref_genome = ref_genome[cols_to_keep]
+ref_proteome = ref_proteome[cols_to_keep]
+de_novo = de_novo[cols_to_keep]
+
+# no NAs to omit after keeping only Busco.id and Status columns
+# ref_genome <- na.omit(ref_genome)
+# ref_proteome <- na.omit(ref_proteome)
+# de_novo <- na.omit(de_novo)
+```
+
+```{r remove_duplicates}
+# discard duplicate BUSCO IDs
+
+ref_genome = ref_genome[!duplicated(ref_genome$Busco.id),]
+ref_proteome = ref_proteome[!duplicated(ref_proteome$Busco.id),]
+de_novo = de_novo[!duplicated(de_novo$Busco.id),]
+```
+
+```{r completed_BUSCOs}
+# create datasets with complete/duplicated BUSCO IDs only
+
+ref_genome_complete = subset(ref_genome, Status %in% c("Complete", "Duplicated", "Fragmented"))
+ref_proteome_complete = subset(ref_proteome, Status %in% c("Complete", "Duplicated", "Fragmented"))
+de_novo_complete = subset(de_novo, Status %in% c("Complete", "Duplicated", "Fragmented"))
+```
+
+```{r venn_diagram}
+# plot Venn diagram
+
+x <- list("Reference genome" = ref_genome_complete[[1]], "Reference\nproteome" = ref_proteome_complete[[1]], "De novo" = de_novo_complete[[1]])
+ggVennDiagram(x) +
+  guides(fill = guide_legend(title = "Complete, Duplicated and\nFragmented BUSCOs")) +
+  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") +
+  scale_color_brewer(palette = "Accent") +
+  ggtitle("Complete, Duplicated and Fragmented BUSCOs")
+```
+
